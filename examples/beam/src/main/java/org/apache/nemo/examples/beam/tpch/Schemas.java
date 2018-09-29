@@ -174,23 +174,23 @@ public final class Schemas {
 
   public static final Schema ORDER_SCHEMA =
     Schema.builder()
-      .addInt32Field("o_orderkey")
-      .addInt32Field("o_custkey")
+      .addDecimalField("o_orderkey")
+      .addDecimalField("o_custkey")
       .addStringField("o_orderstatus")
       .addFloatField("o_totalprice")
       .addStringField("o_orderdate")
       .addStringField("o_orderpriority")
       .addStringField("o_clerk")
-      .addInt32Field("o_shippriority")
+      .addDecimalField("o_shippriority")
       .addStringField("o_comment")
       .build();
 
   public static final Schema CUSTOMER_SCHEMA =
     Schema.builder()
-      .addInt32Field("c_custkey")
+      .addDecimalField("c_custkey")
       .addStringField("c_name")
       .addStringField("c_address")
-      .addInt32Field("c_nationkey")
+      .addDecimalField("c_nationkey")
       .addStringField("c_phone")
       .addFloatField("c_acctbal")
       .addStringField("c_mktsegment")
@@ -221,10 +221,10 @@ public final class Schemas {
 
   public static final Schema LINEITEM_SCHEMA =
     Schema.builder()
-      .addInt32Field("l_orderkey")
-      .addInt32Field("l_partkey")
-      .addInt32Field("l_suppkey")
-      .addInt32Field("l_linenumber")
+      .addDecimalField("l_orderkey")
+      .addDecimalField("l_partkey")
+      .addDecimalField("l_suppkey")
+      .addDecimalField("l_linenumber")
       .addFloatField("l_quantity")
       .addFloatField("l_extendedprice")
       .addFloatField("l_discount")
@@ -241,26 +241,26 @@ public final class Schemas {
 
   public static final Schema PARTSUPP_SCHEMA =
     Schema.builder()
-      .addInt32Field("ps_partkey")
-      .addInt32Field("ps_suppkey")
-      .addInt32Field("ps_availqty")
+      .addDecimalField("ps_partkey")
+      .addDecimalField("ps_suppkey")
+      .addDecimalField("ps_availqty")
       .addFloatField("ps_supplycost")
       .addStringField("ps_comment")
       .build();
 
   public static final Schema REGION_SCHEMA =
     Schema.builder()
-      .addInt32Field("r_regionkey")
+      .addDecimalField("r_regionkey")
       .addStringField("r_name")
       .addStringField("r_comment")
       .build();
 
   public static final Schema SUPPLIER_SCHEMA =
     Schema.builder()
-      .addInt32Field("s_suppkey")
+      .addDecimalField("s_suppkey")
       .addStringField("s_name")
       .addStringField("s_address")
-      .addInt32Field("s_nationkey")
+      .addDecimalField("s_nationkey")
       .addStringField("s_phone")
       .addFloatField("s_acctbal")
       .addStringField("s_comment")
@@ -268,12 +268,12 @@ public final class Schemas {
 
   public static final Schema PART_SCHEMA =
     Schema.builder()
-      .addInt32Field("p_partkey")
+      .addDecimalField("p_partkey")
       .addStringField("p_name")
       .addStringField("p_mfgr")
       .addStringField("p_brand")
       .addStringField("p_type")
-      .addInt32Field("p_size")
+      .addDecimalField("p_size")
       .addStringField("p_container")
       .addFloatField("p_retailprice")
       .addStringField("p_comment")
@@ -281,9 +281,9 @@ public final class Schemas {
 
   public static final Schema NATION_SCHEMA =
     Schema.builder()
-      .addInt32Field("n_nationkey")
+      .addDecimalField("n_nationkey")
       .addStringField("n_name")
-      .addInt32Field("n_regionkey")
+      .addDecimalField("n_regionkey")
       .addStringField("n_comment")
       .build();
 
