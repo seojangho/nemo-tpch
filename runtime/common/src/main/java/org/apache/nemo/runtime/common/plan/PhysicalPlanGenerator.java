@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * A function that converts an IR DAG to physical DAG.
@@ -250,6 +251,14 @@ public final class PhysicalPlanGenerator implements Function<DAG<IRVertex, IREdg
     });
   }
 
+  private List<Stage> getPushChildren(final DAG<Stage, StageEdge> dag, final Stage stage) {
+    return dag.getOutgoingEdgesOf(stage)
+      .stream()
+      .filter(outEdge -> outEdge.getDataFlowModel() != DataFlowProperty.Value.Pull)
+      .map(pushOutEdge -> pushOutEdge.getDst())
+      .collect(Collectors.toList());
+  }
+
   /**
    * Split ScheduleGroups by Pull {@link StageEdge}s, and ensure topological ordering of
    * {@link ScheduleGroupProperty}.
@@ -260,6 +269,44 @@ public final class PhysicalPlanGenerator implements Function<DAG<IRVertex, IREdg
     final MutableInt nextScheduleGroup = new MutableInt(0);
     final Map<Stage, Integer> stageToScheduleGroupMap = new HashMap<>();
 
+    while (dag.getVertices().size() != stageToScheduleGroupMap.size()) {
+
+      final List<Stage> unassignedStages = dag.getVertices().stream()
+        .filter(stage -> !stageToScheduleGroupMap.containsKey(stage))
+        .collect(Collectors.toList());
+
+      final List<Stage> allParentsAssigned = unassignedStages.stream()
+        .filter(curStage ->
+          dag.getIncomingEdgesOf(curStage)
+            .stream()
+            .allMatch(inEdge -> stageToScheduleGroupMap.containsKey(inEdge.getSrc())))
+        .collect(Collectors.toList());
+
+      final List<Stage> curScheduleGroup = allParentsAssigned.stream().filter(curStage -> {
+        return getPushChildren(dag, curStage)
+          .stream()
+          .filter(pushChild -> !stageToScheduleGroupMap.containsKey(pushChild)) // not yet assigned push child
+          .allMatch(unassignedPushChild -> {
+            return dag.getIncomingEdgesOf(unassignedPushChild).stream()
+              .map(inEdge -> inEdge.getSrc())
+              .allMatch(srcOfInEdge -> stageToScheduleGroupMap.containsKey(srcOfInEdge)
+                || allParentsAssigned.contains(srcOfInEdge)
+              );
+          });
+      }).collect(Collectors.toList());
+
+      if (curScheduleGroup.isEmpty()) {
+        throw new RuntimeException(stageToScheduleGroupMap.toString());
+      } else {
+        final int stageId = getAndIncrement(nextScheduleGroup);
+        curScheduleGroup.forEach(stage -> stageToScheduleGroupMap.put(stage, stageId));
+        curScheduleGroup.forEach(stage -> getPushChildren(dag, stage).stream().forEach(child -> {
+          stageToScheduleGroupMap.put(child, stageId);
+        }));
+      }
+    }
+
+    /*
     dag.topologicalDo(currentStage -> {
       // Base case: assign New ScheduleGroup of the Stage
       stageToScheduleGroupMap.computeIfAbsent(currentStage, s -> getAndIncrement(nextScheduleGroup));
@@ -306,7 +353,7 @@ public final class PhysicalPlanGenerator implements Function<DAG<IRVertex, IREdg
           stageToScheduleGroupMap.put(destination, newScheduleGroup);
         }
       }
-    });
+    });*/
 
     dag.topologicalDo(stage -> {
       final int scheduleGroup = stageToScheduleGroupMap.get(stage);

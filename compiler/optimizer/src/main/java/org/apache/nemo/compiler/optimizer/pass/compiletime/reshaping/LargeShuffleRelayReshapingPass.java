@@ -79,7 +79,7 @@ public final class LargeShuffleRelayReshapingPass extends ReshapingPass {
             edge.copyExecutionPropertiesTo(newEdgeToMerger);
             builder.connectVertices(newEdgeToMerger);
           });
-          
+
           dag.getOutgoingEdgesOf(v)
             .stream()
             .map(outEdge -> outEdge.getDst())
