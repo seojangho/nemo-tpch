@@ -23,8 +23,13 @@ import org.apache.nemo.common.ir.edge.executionproperty.CommunicationPatternProp
 import org.apache.nemo.common.ir.edge.IREdge;
 import org.apache.nemo.common.ir.vertex.IRVertex;
 import org.apache.nemo.common.ir.vertex.OperatorVertex;
+import org.apache.nemo.common.ir.vertex.executionproperty.ResourcePriorityProperty;
 import org.apache.nemo.common.ir.vertex.transform.RelayTransform;
 import org.apache.nemo.compiler.optimizer.pass.compiletime.Requires;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Pass to modify the DAG for a job to batch the disk seek.
@@ -44,14 +49,57 @@ public final class LargeShuffleRelayReshapingPass extends ReshapingPass {
 
   @Override
   public DAG<IRVertex, IREdge> apply(final DAG<IRVertex, IREdge> dag) {
+    final Set<IRVertex> flattenChildrenSet = new HashSet<>();
+
     final DAGBuilder<IRVertex, IREdge> builder = new DAGBuilder<>();
     dag.topologicalDo(v -> {
-      builder.addVertex(v);
+      if (flattenChildrenSet.contains(v)) {
+        return;
+      }
+
       // We care about OperatorVertices that have any incoming edge that
       // has Shuffle as data communication pattern.
       if (v instanceof OperatorVertex && dag.getIncomingEdgesOf(v).stream().anyMatch(irEdge ->
               CommunicationPatternProperty.Value.Shuffle
           .equals(irEdge.getPropertyValue(CommunicationPatternProperty.class).get()))) {
+
+        // Flatten hack for join Sailfish
+        final List<IREdge> inEdges = dag.getIncomingEdgesOf(v);
+        final boolean allShuffle = inEdges.stream()
+          .allMatch(inEdge -> CommunicationPatternProperty.Value.Shuffle
+            .equals(inEdge.getPropertyValue(CommunicationPatternProperty.class).get()));
+
+        if (inEdges.size() > 1 && allShuffle) {
+          final OperatorVertex iFileMergerVertex = new OperatorVertex(new RelayTransform());
+          builder.addVertex(iFileMergerVertex);
+
+          inEdges.forEach(edge -> {
+            final IREdge newEdgeToMerger =
+              new IREdge(CommunicationPatternProperty.Value.Shuffle, edge.getSrc(), iFileMergerVertex);
+            edge.copyExecutionPropertiesTo(newEdgeToMerger);
+            builder.connectVertices(newEdgeToMerger);
+          });
+          
+          dag.getOutgoingEdgesOf(v)
+            .stream()
+            .map(outEdge -> outEdge.getDst())
+            .forEach(child -> {
+              final IREdge newEdgeFromMerger = new IREdge(CommunicationPatternProperty.Value.OneToOne,
+                iFileMergerVertex, child);
+              newEdgeFromMerger.setProperty(
+                EncoderProperty.of(inEdges.get(0).getPropertyValue(EncoderProperty.class).get()));
+              newEdgeFromMerger.setProperty(
+                DecoderProperty.of(inEdges.get(0).getPropertyValue(DecoderProperty.class).get()));
+              builder.addVertex(child);
+              builder.connectVertices(newEdgeFromMerger);
+              flattenChildrenSet.add(child);
+            });
+
+          return;
+        }
+
+        builder.addVertex(v);
+
         dag.getIncomingEdgesOf(v).forEach(edge -> {
           if (CommunicationPatternProperty.Value.Shuffle
                 .equals(edge.getPropertyValue(CommunicationPatternProperty.class).get())) {
@@ -74,6 +122,7 @@ public final class LargeShuffleRelayReshapingPass extends ReshapingPass {
           }
         });
       } else { // Others are simply added to the builder.
+        builder.addVertex(v);
         dag.getIncomingEdgesOf(v).forEach(builder::connectVertices);
       }
     });
