@@ -15,8 +15,11 @@
  */
 package org.apache.nemo.common.coder;
 
-import org.apache.nemo.common.DirectByteArrayOutputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -68,14 +71,14 @@ public final class BytesDecoderFactory implements DecoderFactory<byte[]> {
     public byte[] decode() throws IOException {
       // We cannot use inputStream.available() to know the length of bytes to read.
       // The available method only returns the number of bytes can be read without blocking.
-      final DirectByteArrayOutputStream byteOutputStream = new DirectByteArrayOutputStream();
+      final ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
       int b = inputStream.read();
       while (b != -1) {
         byteOutputStream.write(b);
         b = inputStream.read();
       }
 
-      final int lengthToRead = byteOutputStream.getCount();
+      final int lengthToRead = byteOutputStream.size();
       if (lengthToRead == 0) {
         if (!returnedArray) {
           returnedArray = true;
@@ -84,8 +87,7 @@ public final class BytesDecoderFactory implements DecoderFactory<byte[]> {
           throw new IOException("EoF (empty partition)!"); // TODO #120: use EOF exception instead of IOException.
         }
       }
-      final byte[] resultBytes = new byte[lengthToRead]; // Read the size of this byte array.
-      System.arraycopy(byteOutputStream.getBufDirectly(), 0, resultBytes, 0, lengthToRead);
+      final byte[] resultBytes = byteOutputStream.toByteArray();
 
       returnedArray = true;
       return resultBytes;
