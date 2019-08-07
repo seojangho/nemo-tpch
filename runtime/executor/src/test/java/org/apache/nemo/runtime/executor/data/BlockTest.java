@@ -39,6 +39,7 @@ import java.util.*;
 public final class BlockTest {
   private Serializer serializer;
   private Map<Integer, List<Integer>> testData;
+  private MemoryPoolAssigner memoryPoolAssigner;
 
   /**
    * Generates the test data and serializer.
@@ -47,6 +48,7 @@ public final class BlockTest {
   public void setUp() throws Exception {
     serializer = new Serializer<>(IntEncoderFactory.of(), IntDecoderFactory.of(), new ArrayList<>(), new ArrayList<>());
     testData = new HashMap<>();
+    memoryPoolAssigner = new MemoryPoolAssigner(1, 32);
 
     final List<Integer> list1 = Collections.singletonList(1);
     final List<Integer> list2 = Arrays.asList(1, 2);
@@ -62,7 +64,7 @@ public final class BlockTest {
    */
   @Test(timeout = 10000)
   public void testNonSerializedMemoryBlock() throws Exception {
-    final Block<Integer> block = new NonSerializedMemoryBlock<>("testBlock", serializer);
+    final Block<Integer> block = new NonSerializedMemoryBlock<>("testBlock", serializer, memoryPoolAssigner);
     testBlock(block);
   }
 
@@ -71,7 +73,7 @@ public final class BlockTest {
    */
   @Test(timeout = 10000)
   public void testSerializedMemoryBlock() throws Exception {
-    final Block<Integer> block = new SerializedMemoryBlock<>("testBlock", serializer);
+    final Block<Integer> block = new SerializedMemoryBlock<>("testBlock", serializer, memoryPoolAssigner);
     testBlock(block);
   }
 
@@ -85,7 +87,7 @@ public final class BlockTest {
     try {
       new File(tmpDir).mkdirs();
       final LocalFileMetadata<Integer> metadata = new LocalFileMetadata<>();
-      final Block<Integer> block = new FileBlock<>("testBlock", serializer, filePath, metadata);
+      final Block<Integer> block = new FileBlock<>("testBlock", serializer, filePath, metadata, memoryPoolAssigner);
       testBlock(block);
     } finally {
       FileUtils.deleteDirectory(new File(tmpDir));

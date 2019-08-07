@@ -15,6 +15,9 @@
  */
 package org.apache.nemo.runtime.executor.data.block;
 
+import org.apache.nemo.common.KeyRange;
+import org.apache.nemo.runtime.executor.data.MemoryAllocationException;
+import org.apache.nemo.runtime.executor.data.MemoryPoolAssigner;
 import org.apache.nemo.common.exception.BlockFetchException;
 import org.apache.nemo.common.exception.BlockWriteException;
 import org.apache.nemo.common.KeyRange;
@@ -42,20 +45,24 @@ public final class SerializedMemoryBlock<K extends Serializable> implements Bloc
   private final Map<K, SerializedPartition<K>> nonCommittedPartitionsMap;
   private final Serializer serializer;
   private volatile boolean committed;
+  private final MemoryPoolAssigner memoryPoolAssigner;
 
   /**
    * Constructor.
    *
    * @param blockId    the ID of this block.
    * @param serializer the {@link Serializer}.
+   * @param memoryPoolAssigner  the MemoryPoolAssigner for memory allocation.
    */
   public SerializedMemoryBlock(final String blockId,
-                               final Serializer serializer) {
+                               final Serializer serializer,
+                               final MemoryPoolAssigner memoryPoolAssigner) {
     this.id = blockId;
     this.serializedPartitions = new ArrayList<>();
     this.nonCommittedPartitionsMap = new HashMap<>();
     this.serializer = serializer;
     this.committed = false;
+    this.memoryPoolAssigner = memoryPoolAssigner;
   }
 
   /**
@@ -76,11 +83,11 @@ public final class SerializedMemoryBlock<K extends Serializable> implements Bloc
       try {
         SerializedPartition<K> partition = nonCommittedPartitionsMap.get(key);
         if (partition == null) {
-          partition = new SerializedPartition<>(key, serializer);
+          partition = new SerializedPartition<>(key, serializer, memoryPoolAssigner);
           nonCommittedPartitionsMap.put(key, partition);
         }
         partition.write(element);
-      } catch (final IOException e) {
+      } catch (final IOException | MemoryAllocationException e) {
         throw new BlockWriteException(e);
       }
     }
@@ -99,9 +106,9 @@ public final class SerializedMemoryBlock<K extends Serializable> implements Bloc
     if (!committed) {
       try {
         final Iterable<SerializedPartition<K>> convertedPartitions = DataUtil.convertToSerPartitions(
-            serializer, partitions);
+          serializer, partitions, memoryPoolAssigner);
         writeSerializedPartitions(convertedPartitions);
-      } catch (final IOException e) {
+      } catch (final IOException | MemoryAllocationException e) {
         throw new BlockWriteException(e);
       }
     } else {
@@ -230,5 +237,14 @@ public final class SerializedMemoryBlock<K extends Serializable> implements Bloc
   @Override
   public synchronized boolean isCommitted() {
     return committed;
+  }
+
+  /**
+   * Releases the resource (i.e., off-heap memory) that the block holds.
+   */
+  public void release() {
+    for (SerializedPartition partition: serializedPartitions) {
+      partition.release();
+    }
   }
 }
