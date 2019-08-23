@@ -329,6 +329,7 @@ public final class JobLauncher {
     cl.registerShortNameOfClass(JobConf.PartitionTransportServerNumWorkingThreads.class);
     cl.registerShortNameOfClass(JobConf.PartitionTransportClientNumThreads.class);
     cl.registerShortNameOfClass(JobConf.MaxNumDownloadsForARuntimeEdge.class);
+    cl.registerShortNameOfClass(JobConf.ScheduleSerThread.class);
     cl.registerShortNameOfClass(JobConf.MaxOffheapMb.class);
     cl.registerShortNameOfClass(JobConf.ChunkSizeKb.class);
     cl.processCommandLine(args);
