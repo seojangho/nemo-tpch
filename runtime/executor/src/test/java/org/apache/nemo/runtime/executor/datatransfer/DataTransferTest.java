@@ -167,9 +167,10 @@ public final class DataTransferTest {
     final PersistentConnectionToMasterMap conToMaster = messageEnvironmentInjector
         .getInstance(PersistentConnectionToMasterMap.class);
     final Configuration executorConfiguration = TANG.newConfigurationBuilder()
-        .bindNamedParameter(JobConf.ExecutorId.class, executorId)
-        .bindNamedParameter(MessageParameters.SenderId.class, executorId)
-        .build();
+      .bindNamedParameter(JobConf.ExecutorId.class, executorId)
+      .bindNamedParameter(MessageParameters.SenderId.class, executorId)
+      .bindNamedParameter(JobConf.MaxOffheapMb.class, "128")
+      .build();
     final Injector injector = nameClientInjector.forkInjector(executorConfiguration);
     injector.bindVolatileInstance(MessageEnvironment.class, messageEnvironment);
     injector.bindVolatileInstance(PersistentConnectionToMasterMap.class, conToMaster);
